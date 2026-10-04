@@ -416,6 +416,9 @@ sfpi_inline sfpi::vFloat sfpu_atan_fp32(sfpi::vFloat x) {
     return r;
 }
 
+// Whether BF16 DEST runs the generated atan kernel as one call over the whole tile.
+inline constexpr bool atan_bf16_whole_tile = false;
+
 template <bool APPROXIMATION_MODE, bool is_fp32_dest_acc_en, int ITERATIONS>
 inline void calculate_atan() {
     for (int d = 0; d < ITERATIONS; d++) {
@@ -582,6 +585,12 @@ sfpi_inline sfpi::vFloat sfpu_acos_fp32(sfpi::vFloat x) {
     return r;
 }
 
+// Whether BF16 DEST runs the generated asin kernel as one call over the whole tile.
+inline constexpr bool asin_bf16_whole_tile = false;
+// The stock asin kernel needs no BF16 setup.
+template <bool bf16_kernel>
+inline void asin_bf16_tile_init() {}
+
 template <bool APPROXIMATION_MODE, bool is_fp32_dest_acc_en, int ITERATIONS = 8>
 inline void calculate_asin() {
     for (int d = 0; d < ITERATIONS; d++) {
@@ -603,6 +612,9 @@ inline void calculate_asin() {
 inline void asin_init() { math::_reset_counters_<p_setrwc::SET_ABD_F>(); }
 
 inline void acos_init() { math::_reset_counters_<p_setrwc::SET_ABD_F>(); }
+
+// Whether BF16 DEST runs the generated acos kernel as one call over the whole tile.
+inline constexpr bool acos_bf16_whole_tile = false;
 
 template <bool APPROXIMATION_MODE, bool is_fp32_dest_acc_en, int ITERATIONS = 8>
 inline void calculate_acos() {
@@ -670,6 +682,9 @@ sfpi_inline sfpi::vFloat _sfpu_quarter_exp_abs_(sfpi::vFloat x) {
 
     return y;
 }
+
+// Whether BF16 DEST runs the generated cosh kernel as one call over the whole tile.
+inline constexpr bool cosh_bf16_whole_tile = false;
 
 // t = exp(a); cosh(a) = 0.5 * (t + 1/t)
 template <bool APPROXIMATION_MODE, bool is_fp32_dest_acc_en, int ITERATIONS>
@@ -989,6 +1004,12 @@ sfpi_inline sfpi::vFloat _sfpu_sqrt_ge0_(sfpi::vFloat x) {
     return a;
 }
 
+// Whether BF16 DEST runs the generated acosh kernel as one call over the whole tile.
+inline constexpr bool acosh_bf16_whole_tile = false;
+// The stock acosh kernel needs no BF16 setup.
+template <bool bf16_kernel>
+inline void acosh_bf16_tile_init() {}
+
 // acosh(x) = log(x + sqrt(x^2 - 1)), reformulated through log1p to remove the
 // absorption error at x -> 1+ and the x^2 overflow at large x. Three regions:
 //   x < 1            -> NaN
@@ -1043,6 +1064,9 @@ inline void calculate_acosh() {
         sfpi::dst_reg++;
     }
 }
+
+// Whether BF16 DEST runs the generated asinh kernel as one call over the whole tile.
+inline constexpr bool asinh_bf16_whole_tile = false;
 
 // asinh(x) = sign(x) * log(|x| + sqrt(x^2 + 1)), reformulated to remove the
 // cancellation at x -> 0 and the x^2 overflow at large |x|. Regions in a = |x|:

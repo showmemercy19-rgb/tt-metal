@@ -419,8 +419,20 @@ sfpi_inline sfpi::vFloat sfpu_atan_fp32(sfpi::vFloat x) {
     return r;
 }
 
+bool bf16_dest_atan();
+template <int ITERATIONS>
+void calculate_atan_bf16();
+// Whether BF16 DEST runs the generated atan kernel as one call over the whole tile.
+inline constexpr bool atan_bf16_whole_tile = true;
+
 template <bool APPROXIMATION_MODE, bool is_fp32_dest_acc_en, int ITERATIONS>
 inline void calculate_atan() {
+    if constexpr (!is_fp32_dest_acc_en && ITERATIONS == 32) {
+        if (bf16_dest_atan()) {
+            calculate_atan_bf16<ITERATIONS>();
+            return;
+        }
+    }
     for (int d = 0; d < ITERATIONS; d++) {
         sfpi::vFloat in = sfpi::dst_reg[0];
         sfpi::vFloat result;
@@ -591,8 +603,28 @@ sfpi_inline sfpi::vFloat sfpu_acos_fp32(sfpi::vFloat x) {
     return r;
 }
 
+bool bf16_dest_asin();
+template <int ITERATIONS>
+void calculate_asin_bf16();
+void init_asin_bf16();
+// Whether BF16 DEST runs the generated asin kernel as one call over the whole tile.
+inline constexpr bool asin_bf16_whole_tile = true;
+// Sets up the generated BF16 asin kernel for the instance it serves.
+template <bool bf16_kernel>
+inline void asin_bf16_tile_init() {
+    if constexpr (bf16_kernel) {
+        init_asin_bf16();
+    }
+}
+
 template <bool APPROXIMATION_MODE, bool is_fp32_dest_acc_en, int ITERATIONS = 8>
 inline void calculate_asin() {
+    if constexpr (!is_fp32_dest_acc_en && ITERATIONS == 32) {
+        if (bf16_dest_asin()) {
+            calculate_asin_bf16<ITERATIONS>();
+            return;
+        }
+    }
     for (int d = 0; d < ITERATIONS; d++) {
         sfpi::vFloat in = sfpi::dst_reg[0];
         sfpi::vFloat result;
@@ -625,8 +657,20 @@ inline void acos_init() {
     asin_acos_init<is_fp32_dest_acc_en>();
 }
 
+bool bf16_dest_acos();
+template <int ITERATIONS>
+void calculate_acos_bf16();
+// Whether BF16 DEST runs the generated acos kernel as one call over the whole tile.
+inline constexpr bool acos_bf16_whole_tile = true;
+
 template <bool APPROXIMATION_MODE, bool is_fp32_dest_acc_en, int ITERATIONS = 8>
 inline void calculate_acos() {
+    if constexpr (!is_fp32_dest_acc_en && ITERATIONS == 32) {
+        if (bf16_dest_acos()) {
+            calculate_acos_bf16<ITERATIONS>();
+            return;
+        }
+    }
     for (int d = 0; d < ITERATIONS; d++) {
         sfpi::vFloat in = sfpi::dst_reg[0];
         sfpi::vFloat result;
@@ -692,9 +736,21 @@ sfpi_inline sfpi::vFloat _sfpu_quarter_exp_abs_(sfpi::vFloat x) {
     return y;
 }
 
+bool bf16_dest_cosh();
+template <int ITERATIONS>
+void calculate_cosh_bf16();
+// Whether BF16 DEST runs the generated cosh kernel as one call over the whole tile.
+inline constexpr bool cosh_bf16_whole_tile = true;
+
 // t = exp(a); cosh(a) = 0.5 * (t + 1/t)
 template <bool APPROXIMATION_MODE, bool is_fp32_dest_acc_en, int ITERATIONS>
 inline void calculate_cosh() {
+    if constexpr (!is_fp32_dest_acc_en && ITERATIONS == 32) {
+        if (bf16_dest_cosh()) {
+            calculate_cosh_bf16<ITERATIONS>();
+            return;
+        }
+    }
     for (int d = 0; d < ITERATIONS; d++) {
         sfpi::vFloat x = sfpi::dst_reg[0];
         sfpi::vFloat a = sfpi::setsgn(x, 0);
@@ -834,8 +890,16 @@ void tangent_init() {
     sfpi::vConstFloatPrgm2 = FRAC_2_PI;
 }
 
+void init_cosh_bf16();
+
 template <bool APPROXIMATION_MODE, bool is_fp32_dest_acc_en>
 void cosh_init() {
+    if constexpr (!is_fp32_dest_acc_en) {
+        if (bf16_dest_cosh()) {
+            init_cosh_bf16();
+            return;
+        }
+    }
     math::reset_counters(p_setrwc::SET_ABD_F);
     sfpi::vConstFloatPrgm0 = 1.442695f;  // log2(e) == 1 / ln(2)
     if constexpr (is_fp32_dest_acc_en) {
@@ -860,8 +924,16 @@ void sinh_init() {
     }
 }
 
+void init_atan_bf16();
+
 template <bool APPROXIMATION_MODE, bool is_fp32_dest_acc_en>
 void atan_init() {
+    if constexpr (!is_fp32_dest_acc_en) {
+        if (bf16_dest_atan()) {
+            init_atan_bf16();
+            return;
+        }
+    }
     math::reset_counters(p_setrwc::SET_ABD_F);
     if constexpr (is_fp32_dest_acc_en) {
         sfpi::vConstFloatPrgm1 = 0x1.999384p-3f;
@@ -1010,6 +1082,20 @@ sfpi_inline sfpi::vFloat _sfpu_sqrt_ge0_(sfpi::vFloat x) {
     return a;
 }
 
+bool bf16_dest_acosh();
+template <int ITERATIONS>
+void calculate_acosh_bf16();
+void init_acosh_bf16();
+// Whether BF16 DEST runs the generated acosh kernel as one call over the whole tile.
+inline constexpr bool acosh_bf16_whole_tile = true;
+// Sets up the generated BF16 acosh kernel for the instance it serves.
+template <bool bf16_kernel>
+inline void acosh_bf16_tile_init() {
+    if constexpr (bf16_kernel) {
+        init_acosh_bf16();
+    }
+}
+
 // acosh(x) = log(x + sqrt(x^2 - 1)), reformulated through log1p to remove the
 // absorption error at x -> 1+ and the x^2 overflow at large x. Three regions:
 //   x < 1            -> NaN
@@ -1022,6 +1108,12 @@ sfpi_inline sfpi::vFloat _sfpu_sqrt_ge0_(sfpi::vFloat x) {
 // that makes the classic form return +inf for x >= ~1.84e19.
 template <bool APPROXIMATION_MODE, bool is_fp32_dest_acc_en, int ITERATIONS>
 inline void calculate_acosh() {
+    if constexpr (!is_fp32_dest_acc_en && ITERATIONS == 32) {
+        if (bf16_dest_acosh()) {
+            calculate_acosh_bf16<ITERATIONS>();
+            return;
+        }
+    }
     constexpr float LOG1P_LARGE = 268435456.0f;  // 2^28
     constexpr float LN2 = 0.6931471805599453f;
     // SFPU microcode
@@ -1065,6 +1157,12 @@ inline void calculate_acosh() {
     }
 }
 
+bool bf16_dest_asinh();
+template <int ITERATIONS>
+void calculate_asinh_bf16();
+// Whether BF16 DEST runs the generated asinh kernel as one call over the whole tile.
+inline constexpr bool asinh_bf16_whole_tile = true;
+
 // asinh(x) = sign(x) * log(|x| + sqrt(x^2 + 1)), reformulated to remove the
 // cancellation at x -> 0 and the x^2 overflow at large |x|. Regions in a = |x|:
 //   a < 0.75          -> a * P(a^2), degree-6 minimax polynomial (<=1 ulp)
@@ -1078,6 +1176,12 @@ inline void calculate_acosh() {
 // overflows (the old x^2 + 1 produced +inf at ~1.84e19).
 template <bool APPROXIMATION_MODE, bool is_fp32_dest_acc_en, int ITERATIONS>
 inline void calculate_asinh() {
+    if constexpr (!is_fp32_dest_acc_en && ITERATIONS == 32) {
+        if (bf16_dest_asinh()) {
+            calculate_asinh_bf16<ITERATIONS>();
+            return;
+        }
+    }
     constexpr float LOG1P_LARGE = 268435456.0f;  // 2^28
     constexpr float LN2 = 0.6931471805599453f;
     // SFPU microcode
@@ -1206,3 +1310,15 @@ void init_atanh() {
 }
 
 }  // namespace ckernel::sfpu
+
+#include "ckernel_sfpu_acos_bf16.h"
+
+#include "ckernel_sfpu_acosh_bf16.h"
+
+#include "ckernel_sfpu_asin_bf16.h"
+
+#include "ckernel_sfpu_asinh_bf16.h"
+
+#include "ckernel_sfpu_atan_bf16.h"
+
+#include "ckernel_sfpu_cosh_bf16.h"

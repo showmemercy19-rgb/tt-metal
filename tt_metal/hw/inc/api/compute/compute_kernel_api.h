@@ -123,7 +123,7 @@ ALWI void sigmoid_tile_init() {
 #ifdef ARCH_QUASAR
     MATH(SFPU_UNARY_INIT(sigmoid));
 #else
-    MATH(SFPU_UNARY_INIT_FN(sigmoid, sfpu::sigmoid_init, (fast_and_approx)));
+    MATH(SFPU_UNARY_INIT_FN(sigmoid, sfpu::sigmoid_init, (fast_and_approx, DST_ACCUM_MODE)));
 #endif
 }
 
@@ -146,6 +146,18 @@ ALWI void sigmoid_tile(uint32_t idst) {
 #ifdef ARCH_QUASAR
     MATH(SFPU_UNARY_CALL(DST_SYNC_MODE, is_fp32_dest_acc_en, calculate_sigmoid, (8 /*ITERATIONS*/), idst, vec_mode));
 #else
+    MATH(if constexpr (
+        ckernel::sfpu::sigmoid_bf16_whole_tile && !is_fp32_dest_acc_en && !fast_and_approx &&
+        vec_mode == VectorMode::RC) {
+        SFPU_UNARY_CALL(
+            DST_SYNC_MODE,
+            is_fp32_dest_acc_en,
+            calculate_sigmoid,
+            (fast_and_approx, is_fp32_dest_acc_en, 32),
+            idst,
+            VectorMode::None);
+        return;
+    });
     MATH(SFPU_UNARY_CALL(
         DST_SYNC_MODE,
         is_fp32_dest_acc_en,
@@ -360,6 +372,20 @@ ALWI void log_with_base_tile_init() {
 // clang-format on
 template <bool fast_and_approx = false, bool base_is_two = false, bool is_fp32_dest_acc_en = DST_ACCUM_MODE>
 ALWI void log_with_base_tile(uint32_t idst, uint32_t base_scale) {
+    MATH(if constexpr (
+        ckernel::sfpu::log2_bf16_whole_tile && !is_fp32_dest_acc_en && !fast_and_approx && base_is_two == true) {
+        if (base_scale == 0x3fb8aa3bu) {
+            SFPU_UNARY_CALL(
+                DST_SYNC_MODE,
+                is_fp32_dest_acc_en,
+                calculate_log,
+                (APPROX, fast_and_approx, true /* HAS_BASE_SCALING */, is_fp32_dest_acc_en, 32, base_is_two),
+                idst,
+                VectorMode::None,
+                base_scale);
+            return;
+        }
+    });
     MATH(SFPU_UNARY_CALL(
         DST_SYNC_MODE,
         is_fp32_dest_acc_en,
@@ -454,13 +480,22 @@ ALWI void signbit_tile_int32(uint32_t idst) {
  */
 // clang-format on
 ALWI void abs_tile(uint32_t idst) {
-    MATH(SFPU_UNARY_CALL(DST_SYNC_MODE, DST_ACCUM_MODE, calculate_abs, (APPROX), idst, VectorMode::RC));
+    MATH(if constexpr (ckernel::sfpu::abs_bf16_whole_tile && !DST_ACCUM_MODE) {
+        SFPU_UNARY_CALL(
+            DST_SYNC_MODE, DST_ACCUM_MODE, calculate_abs, (APPROX, 32, DST_ACCUM_MODE), idst, VectorMode::None);
+        return;
+    });
+    MATH(SFPU_UNARY_CALL(
+        DST_SYNC_MODE, DST_ACCUM_MODE, calculate_abs, (APPROX, 8, DST_ACCUM_MODE), idst, VectorMode::RC));
 }
 
 /**
  * Please refer to documentation for any_init.
  */
-ALWI void abs_tile_init() { MATH(SFPU_UNARY_INIT(abs)); }
+ALWI void abs_tile_init() {
+    MATH(SFPU_UNARY_INIT(abs));
+    MATH(ckernel::sfpu::abs_bf16_tile_init<!DST_ACCUM_MODE>());
+}
 
 // clang-format off
 /**
@@ -617,6 +652,16 @@ ALWI void power_iterative_tile_init() { MATH(SFPU_UNARY_INIT(power)); }
 // clang-format on
 template <bool is_fp32_dest_acc_en = DST_ACCUM_MODE>
 ALWI void exp2_tile(uint32_t idst) {
+    MATH(if constexpr (ckernel::sfpu::exp2_bf16_whole_tile && !is_fp32_dest_acc_en) {
+        SFPU_UNARY_CALL(
+            DST_SYNC_MODE,
+            is_fp32_dest_acc_en,
+            calculate_exp2,
+            (true /* APPROXIMATE */, is_fp32_dest_acc_en, 32),
+            idst,
+            VectorMode::None);
+        return;
+    });
     MATH(SFPU_UNARY_CALL(
         DST_SYNC_MODE,
         is_fp32_dest_acc_en,

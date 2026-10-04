@@ -12,7 +12,10 @@ namespace ckernel::sfpu {
 
 inline void hardshrink_init() { math::_reset_counters_<p_setrwc::SET_ABD_F>(); }
 
-template <bool APPROXIMATION_MODE, int ITERATIONS>
+// Whether BF16 DEST runs the generated hardshrink kernel as one call over the whole tile.
+inline constexpr bool hardshrink_bf16_whole_tile = false;
+
+template <bool APPROXIMATION_MODE, int ITERATIONS, bool is_fp32_dest_acc_en = true>
 inline void calculate_hardshrink(uint32_t param0) {
     // Hardshrink(x, λ) = x if |x| > λ, else 0
     // Single comparison using abs: setsgn(v, 0) clears sign bit

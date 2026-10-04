@@ -1902,6 +1902,7 @@ SPECIALS_READY_OPS: FrozenSet[MathOperation] = frozenset(
         MathOperation.Cosh,
         MathOperation.Elu,
         MathOperation.EqualZero,
+        MathOperation.Erfinv,
         MathOperation.Exp,  # exp(+inf) = +inf, exp(-inf) = 0, exp(+/-0) = 1
         MathOperation.Exp2,
         MathOperation.ExpWithBase,
@@ -1917,6 +1918,7 @@ SPECIALS_READY_OPS: FrozenSet[MathOperation] = frozenset(
         MathOperation.LessThanEqualZero,
         MathOperation.LessThanZero,
         MathOperation.Log1p,
+        MathOperation.LogWithBase,
         MathOperation.Lrelu,
         MathOperation.Mish,
         MathOperation.Neg,  # -/+inf, -/+0; the only negative NaN here (cast_to_dest_dtype)
