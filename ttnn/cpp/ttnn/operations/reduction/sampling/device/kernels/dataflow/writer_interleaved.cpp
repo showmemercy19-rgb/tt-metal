@@ -106,10 +106,12 @@ void kernel_main() {
     // generate the top-k mask
     constexpr uint32_t one = 1;
     generate_mask<dfb::mask, one>(one, ids_per_batch / 32, k - 1);
-    // get random number
+    // get random number in full FP32 precision (Issue #59732)
     dfb_rand.wait_front(1);
-    const CoreLocalMem<volatile uint16_t> rand_values(dfb_rand.get_read_ptr());
-    const uint16_t rand = rand_values[0];
+    const CoreLocalMem<volatile uint32_t> rand_values(dfb_rand.get_read_ptr());
+    const uint32_t rand_bits = rand_values[0];
+    float rand_f;
+    __builtin_memcpy(&rand_f, &rand_bits, sizeof(float));
     // wait for compute kernel
     dfb_final_indices.wait_front(num_users);
     dfb_local_values.wait_front(1);
@@ -184,8 +186,7 @@ void kernel_main() {
         end_id_local_phase_1 = start_id_local_phase_1 + (kept_tokens - FACE_WIDTH);
     }
 
-    // Stochastic sampling in float32
-    const float rand_f = bf16_to_f32(rand);
+    // Stochastic sampling in float32 (using full FP32 rand_f resolution)
     float cum_sum_f = 0.0f;
     index_out[core_id] = final_indices[local_indices[start_id_local_phase_0]];
     bool index_found = false;
